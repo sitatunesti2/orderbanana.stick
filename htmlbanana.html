@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BananaStick - Smart Order Pouch</title>
+    <style>
+        :root {
+            --primary: #f1c40f;
+            --secondary: #2c3e50;
+            --accent: #e67e22;
+            --success: #25d366;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: #fdfae6; 
+            color: var(--secondary);
+        }
+
+        .hero-banner {
+            width: 100%; height: 200px;
+            background: #fdfae6 no-repeat center/contain;
+            border-bottom: 4px solid var(--primary);
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .welcome-text {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 25px; border-radius: 50px;
+            color: var(--accent); font-size: 1.2rem; font-weight: 800;
+            border: 2px solid var(--primary); text-align: center;
+        }
+
+        .container { 
+            max-width: 900px; margin: auto; padding: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 25px; margin-top: -30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            margin-bottom: 150px;
+        }
+
+        .section-box {
+            padding: 20px; background: #fffdf0; border-radius: 15px;
+            margin-bottom: 20px; border: 1px solid var(--primary);
+        }
+
+        .grid-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        
+        label { font-weight: bold; display: block; margin-bottom: 8px; color: var(--accent); }
+        input, select, textarea { 
+            width: 100%; padding: 12px; border-radius: 8px; 
+            border: 1px solid #ddd; box-sizing: border-box; font-family: inherit;
+        }
+
+        #deliveryArea { display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--primary); }
+        #pickupArea { margin-top: 10px; padding: 10px; background: #fff9e6; border-radius: 10px; border: 1px solid var(--primary); font-size: 0.9rem; }
+
+        .pouch-display {
+            position: fixed; right: 20px; bottom: 120px;
+            width: 110px; height: 140px;
+            background: var(--primary); border-radius: 15px 15px 10px 10px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2); border: 4px solid #fff;
+            z-index: 1000; transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .pouch-brand { font-size: 0.6rem; font-weight: bold; color: var(--accent); }
+        .pouch-number { font-size: 2rem; font-weight: 900; color: white; text-shadow: 2px 2px 0 var(--secondary); }
+        .bounce { transform: scale(1.2) rotate(5deg); }
+
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .card { background: white; padding: 15px; border-radius: 15px; text-align: center; border-bottom: 4px solid var(--primary); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        
+        .custom-gram-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; border-radius: 10px; overflow: hidden; }
+        .custom-gram-table th { background: var(--primary); color: var(--secondary); padding: 10px; text-align: left; }
+        .custom-gram-table td { padding: 10px; border-bottom: 1px solid #eee; text-align: center; }
+
+        .btn-round { width: 30px; height: 30px; border-radius: 50%; border: none; background: var(--accent); color: white; cursor: pointer; font-weight: bold; }
+
+        .cart-bar {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: var(--secondary); color: white; padding: 15px;
+            display: flex; justify-content: space-around; align-items: center; z-index: 999;
+        }
+
+        .btn-checkout { background: var(--success); color: white; border: none; padding: 12px 25px; border-radius: 25px; font-weight: bold; cursor: pointer; }
+        
+        .info-ongkir { font-size: 0.8rem; color: var(--accent); font-weight: bold; margin-bottom: 10px; }
+        .address-box { font-size: 0.85rem; line-height: 1.4; color: #555; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="hero-banner">
+        <div class="welcome-text">Banana Stick Order 🍌</div>
+    </div>
+
+    <div class="pouch-display" id="mainPouch">
+        <div class="pouch-brand">BANANA STICK</div>
+        <div class="pouch-number" id="pouchCount">0</div>
+        <div style="font-size: 0.5rem; font-weight: bold;">TOTAL ITEM</div>
+    </div>
+
+    <div class="container">
+        <div class="section-box">
+            <div class="grid-inputs">
+                <div>
+                    <label>Nama Lengkap</label>
+                    <input type="text" id="custName" placeholder="Contoh: Andi Wijaya" oninput="syncData()">
+                </div>
+                <div>
+                    <label>Metode Pembayaran</label>
+                    <select id="payMethod">
+                        <option value="QRIS">QRIS</option>
+                        <option value="GOPAY">GoPay</option>
+                        <option value="SHOPEEPAY">ShopeePay</option>
+                        <option value="TUNAI">Tunai (Cash)</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="section-box">
+            <label>Metode Pengiriman</label>
+            <select id="shipMethod" onchange="toggleAddress()">
+                <option value="Ambil Sendiri">Ambil Sendiri (Self-Pickup)</option>
+                <option value="Diantar Driver">Diantar Driver (Delivery)</option>
+            </select>
+            
+            <div id="pickupArea">
+                <strong>📍 Lokasi Pengambilan (Princess House):</strong>
+                <div class="address-box">
+                    Jl. Ring Road Utara RT/ RW 28/16, Condongcatur-Depok, <br>
+                    Sleman - Daerah Istimewa Yogyakarta 55283
+                </div>
+            </div>
+
+            <div id="deliveryArea">
+                <div class="info-ongkir">🚚 Ongkir: Rp 5.000/km (Gratis ongkir minimal beli 5 pouch)</div>
+                <div class="grid-inputs" style="margin-bottom: 15px;">
+                    <div>
+                        <label>Jarak Estimasi (KM)</label>
+                        <input type="number" id="distKm" placeholder="0" min="0" oninput="syncData()">
+                    </div>
+                    <div>
+                        <label>Biaya Ongkir</label>
+                        <input type="text" id="shippingCostDisplay" value="Rp 0" disabled style="background: #f0f0f0; font-weight: bold; color: var(--accent);">
+                    </div>
+                </div>
+                <label>Alamat Pengantaran</label>
+                <textarea id="custAddress" rows="3" placeholder="Tulis alamat lengkap & patokan lokasi..."></textarea>
+            </div>
+        </div>
+
+        <h3 style="text-align: center; color: var(--accent);">🍌 Pilih Varian Rasa (Pouch) 🍌<br>
+        <small style="color: grey; font-size: 0.8rem;">Rp 7.000/pcs</small></h3>
+        <div class="product-grid" id="grid"></div>
+
+        <div class="section-box">
+            <h3 style="color: var(--accent); margin-top: 0;">✨ Custom Tambah Bumbu (Gram)</h3>
+            <p style="font-size: 0.8rem; color: #666;">Bumbu tambahan kelipatan 50gr - Rp 2.000</p>
+            
+            <table class="custom-gram-table">
+                <thead>
+                    <tr>
+                        <th>Rasa Bumbu</th>
+                        <th>Berat (Gram)</th>
+                        <th>Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody id="customGramBody"></tbody>
+            </table>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px; font-size: 0.9rem; padding: 20px; border-top: 1px solid #eee;">
+            <p><strong>Store Address:</strong><br>
+            🏠 <b>Princess House</b><br>
+            Jl. Ring Road Utara RT/ RW 28/16, Condongcatur-Depok,<br>
+            Sleman, D.I. Yogyakarta 55283</p>
+            
+            <p><strong>Contact Us:</strong> <br> 
+            🟢 WA: 0882-1019-2593 | 📸 IG: @bananastick</p>
+        </div>
+    </div>
+
+    <div class="cart-bar">
+        <div>
+            <strong id="nameDisplay">Tamu</strong> - <span id="totalDisplay">0</span> Pcs
+            <br>
+            <small style="color:var(--primary)">Total: Rp <span id="priceDisplay">0</span></small>
+        </div>
+        <button onclick="sendWA()" class="btn-checkout">Pesan Sekarang</button>
+    </div>
+
+    <script>
+        const PRICE_PER_POUCH = 7000;
+        const PRICE_PER_50GR = 2000;
+        const ONGKIR_PER_KM = 5000;
+
+        const flavors = [
+            { id: 1, nama: "Balado🌶️", qty: 0 },
+            { id: 2, nama: "Jagung Manis🌽", qty: 0 },
+            { id: 3, nama: "Keju🧀", qty: 0 },
+            { id: 4, nama: "Baberque🥩", qty: 0 },
+            { id: 5, nama: "Rumput Laut🍀", qty: 0 }
+        ];
+
+        const customBumbu = [
+            { id: 'c1', nama: "Ekstra Balado🌶️", gram: 0 },
+            { id: 'c2', nama: "Ekstra Jagung🌽", gram: 0 },
+            { id: 'c3', nama: "Ekstra Keju🧀", gram: 0 },
+            { id: 'c4', nama: "Ekstra Barbeque🥩", gram: 0 },
+            { id: 'c5', nama: "Ekstra Rumput Laut🍀", gram: 0 }
+        ];
+
+        function init() {
+            const grid = document.getElementById('grid');
+            flavors.forEach(f => {
+                grid.innerHTML += `
+                    <div class="card">
+                        <h4 style="margin: 10px 0;">${f.nama}</h4>
+                        <div style="display:flex; justify-content:center; align-items:center; gap:10px;">
+                            <button class="btn-round" onclick="changeQty(${f.id}, -1)">-</button>
+                            <span id="qty-${f.id}" style="font-weight:bold">0</span>
+                            <button class="btn-round" onclick="changeQty(${f.id}, 1)">+</button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const gramBody = document.getElementById('customGramBody');
+            customBumbu.forEach(c => {
+                gramBody.innerHTML += `
+                    <tr>
+                        <td style="text-align: left; font-weight: bold;">${c.nama}</td>
+                        <td>
+                            <div style="display:flex; justify-content:center; align-items:center; gap:8px;">
+                                <button class="btn-round" onclick="changeGram('${c.id}', -50)">-</button>
+                                <span id="gram-${c.id}" style="min-width: 50px;">0g</span>
+                                <button class="btn-round" onclick="changeGram('${c.id}', 50)">+</button>
+                            </div>
+                        </td>
+                        <td id="sub-${c.id}" style="color: var(--accent); font-weight: bold;">Rp 0</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function toggleAddress() {
+            const method = document.getElementById('shipMethod').value;
+            document.getElementById('deliveryArea').style.display = (method === "Diantar Driver") ? "block" : "none";
+            document.getElementById('pickupArea').style.display = (method === "Ambil Sendiri") ? "block" : "none";
+            syncData();
+        }
+
+        function changeQty(id, delta) {
+            const f = flavors.find(x => x.id === id);
+            f.qty = Math.max(0, f.qty + delta);
+            document.getElementById(`qty-${id}`).innerText = f.qty;
+            if (delta > 0) animatePouch();
+            syncData();
+        }
+
+        function changeGram(id, delta) {
+            const c = customBumbu.find(x => x.id === id);
+            c.gram = Math.max(0, c.gram + delta);
+            document.getElementById(`gram-${id}`).innerText = c.gram + "g";
+            document.getElementById(`sub-${id}`).innerText = "Rp " + ((c.gram / 50) * PRICE_PER_50GR).toLocaleString();
+            if (delta > 0) animatePouch();
+            syncData();
+        }
+
+        function animatePouch() {
+            const pouch = document.getElementById('mainPouch');
+            pouch.classList.add('bounce');
+            setTimeout(() => pouch.classList.remove('bounce'), 300);
+        }
+
+        function syncData() {
+            let totalPouchCount = 0;
+            flavors.forEach(f => totalPouchCount += f.qty);
+            
+            let totalPouchPrice = totalPouchCount * PRICE_PER_POUCH;
+            let totalGramPrice = 0;
+            customBumbu.forEach(c => totalGramPrice += (c.gram / 50) * PRICE_PER_50GR);
+
+            let totalOngkir = 0;
+            const method = document.getElementById('shipMethod').value;
+            if (method === "Diantar Driver") {
+                const jarak = parseFloat(document.getElementById('distKm').value) || 0;
+                if (totalPouchCount >= 5) {
+                    totalOngkir = 0;
+                    document.getElementById('shippingCostDisplay').value = "GRATIS!";
+                } else {
+                    totalOngkir = jarak * ONGKIR_PER_KM;
+                    document.getElementById('shippingCostDisplay').value = "Rp " + totalOngkir.toLocaleString();
+                }
+            } else {
+                document.getElementById('shippingCostDisplay').value = "Rp 0";
+            }
+
+            const grandTotal = totalPouchPrice + totalGramPrice + totalOngkir;
+            document.getElementById('pouchCount').innerText = totalPouchCount;
+            document.getElementById('totalDisplay').innerText = totalPouchCount;
+            document.getElementById('priceDisplay').innerText = grandTotal.toLocaleString();
+            document.getElementById('nameDisplay').innerText = document.getElementById('custName').value || "Tamu";
+        }
+
+        function sendWA() {
+            const name = document.getElementById('custName').value;
+            const payment = document.getElementById('payMethod').value;
+            const ship = document.getElementById('shipMethod').value;
+            const address = document.getElementById('custAddress').value;
+            const jarak = document.getElementById('distKm').value;
+            const shippingText = document.getElementById('shippingCostDisplay').value;
+
+            const selectedPouch = flavors.filter(f => f.qty > 0);
+            const selectedGram = customBumbu.filter(c => c.gram > 0);
+
+            if(!name) { alert("Nama jangan dikosongkan ya!"); return; }
+            if(ship === "Diantar Driver" && (!address || !jarak)) { alert("Jarak dan Alamat wajib diisi!"); return; }
+            if(selectedPouch.length === 0 && selectedGram.length === 0) { alert("Pilih produk dulu yuk!"); return; }
+
+            let msg = `*PESANAN BANANA STICK*%0A%0A`;
+            msg += `👤 Nama: ${name}%0A`;
+            msg += `💳 Bayar: ${payment}%0A`;
+            msg += `🚚 Kirim: ${ship}%0A`;
+            
+            if(ship === "Diantar Driver") {
+                msg += `📍 Jarak: ${jarak} KM%0A`;
+                msg += `🏠 Alamat: ${address}%0A`;
+                msg += `🛵 Ongkir: ${shippingText}%0A`;
+            } else {
+                msg += `📍 Lokasi Ambil: Princess House, Condongcatur%0A`;
+            }
+            
+            if(selectedPouch.length > 0) {
+                msg += `%0A*Rincian Pouch:*%0A`;
+                selectedPouch.forEach(s => msg += `- ${s.nama}: ${s.qty} pcs%0A`);
+            }
+
+            if(selectedGram.length > 0) {
+                msg += `%0A*Custom Gram Bumbu:*%0A`;
+                selectedGram.forEach(s => msg += `- ${s.nama}: ${s.gram} gram%0A`);
+            }
+            
+            msg += `%0A*TOTAL BAYAR: Rp ${document.getElementById('priceDisplay').innerText}*%0A%0AMohon diproses ya Admin!`;
+
+            window.open(`https://wa.me/6288210192593?text=${msg}`);
+        }
+
+        init();
+    </script>
+</body>
+</html>
